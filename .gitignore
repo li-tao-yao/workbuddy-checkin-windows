@@ -1,0 +1,16 @@
+*.info
+*.log
+*.db
+*.db-*
+*.vscdb*
+*.dpapi
+*.xml
+*.zip
+*.tmp
+*.json
+.env*
+.wb-test-*/
+.wb-busy-test-*/
+__pycache__/
+backups/
+logs/
