@@ -1,5 +1,9 @@
 # WorkBuddy 每日签到 · Windows
 
+> **版本说明 / Version status**
+> 本仓库当前提供候选实现。已在其他电脑验证过的 Windows v2 分享包支持客户端的加密登录对象，候选实现采用不同的登录处理方式。v2 原包尚未在此仓库发布。
+> This repository contains a preview with different sign-in handling. The Windows v2 package tested on other PCs has not been published here.
+
 **Windows 自动签到，支持手动安装和 AI agent 部署。** Daily WorkBuddy check-in for Windows, with manual and AI-agent setup. [English quick start](#english-quick-start)
 
 ### 交给 WorkBuddy 或其他 AI agent 安装

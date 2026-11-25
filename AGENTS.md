@@ -1,5 +1,7 @@
 # Deploying WorkBuddy check-in on Windows
 
+版本识别：当用户指定“已在其他电脑验证的 v2 原包”时，本仓库的候选实现不满足该版本要求。请向用户说明版本差异，勿将下面的部署流程作为 v2 安装执行。
+
 适用于 WorkBuddy、Codex 等有本机操作能力的 agent。安装目标是接收者自己的 Windows 账号。所有下列命令都在该账号、同一固定源码目录中运行。例如将仓库克隆到 `%LOCALAPPDATA%\WorkBuddyCheckinSource`，将该目录设为工作目录。已有仓库时先核对 origin、当前版本和未提交修改；保留用户自己的改动。
 
 ## 诊断
