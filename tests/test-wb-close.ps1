@@ -1,4 +1,4 @@
-﻿param([Parameter(Mandatory=$true)][string]$TestDirectory)
+param([Parameter(Mandatory=$true)][string]$TestDirectory)
 $ErrorActionPreference = 'Stop'
 [Console]::OutputEncoding = New-Object Text.UTF8Encoding($false)
 $LogFile = Join-Path $TestDirectory 'close-test.log'

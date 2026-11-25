@@ -1,12 +1,12 @@
 # Deploying WorkBuddy check-in on Windows
 
-版本识别：当用户指定“已在其他电脑验证的 v2 原包”时，本仓库的候选实现不满足该版本要求。请向用户说明版本差异，勿将下面的部署流程作为 v2 安装执行。
+版本识别与安全边界：本公开仓库仅包含明文或同 UID 伴随文件模式的 `WindowsTask` 脚本，以及可选的 `ClientTask` 客户端内任务模板；**不包含针对客户端本地加密对象（`$wbEncrypted: 1`）的解密模块**。若用户明确要求支持纯加密客户端的旧版私有方案，请向用户说明本仓库范围限制，勿将 `ClientTask` 替代方案冒充为无界面脚本。
 
-适用于 WorkBuddy、Codex 等有本机操作能力的 agent。安装目标是接收者自己的 Windows 账号。所有下列命令都在该账号、同一固定源码目录中运行。例如将仓库克隆到 `%LOCALAPPDATA%\WorkBuddyCheckinSource`，将该目录设为工作目录。已有仓库时先核对 origin、当前版本和未提交修改；保留用户自己的改动。
+适用于 WorkBuddy、Codex、Antigravity 等具备本机终端操作能力的 Agent。安装目标是接收者自己的 Windows 账号。所有下列命令都在该账号、同一固定源码目录中运行（例如将仓库克隆到 `%LOCALAPPDATA%\WorkBuddyCheckinSource` 并将其设为工作目录）。已有仓库时先核对 `origin`、当前版本和未提交修改；保留用户自己的改动。
 
 ## 诊断
 
-使用非交互的 PowerShell 脚本入口。双击版的 `.cmd` 有 `pause`，适合人工使用。
+使用非交互的 PowerShell 脚本入口。双击版的 `.cmd` 带有 `pause`，仅供人工操作使用。
 
 ```powershell
 $engine = (Get-Command pwsh.exe -ErrorAction SilentlyContinue).Source
@@ -20,13 +20,13 @@ $result | Select-Object route, reason
 
 | route | 含义及操作 |
 | --- | --- |
-| WindowsTask | 当前登录可用，或找到与桌面账号 UID 相同的兼容文件。继续预演、安装、核对。 |
-| ClientTask | 仅有加密对象。转到下方客户端方案，说明运行条件。 |
-| Unavailable | 按 reason 处理：LoginRequired 请用户登录国内版客户端；Unreadable 或 UnknownFormat 请反馈诊断原因和客户端版本。停止安装。 |
+| `WindowsTask` | 当前登录为明文，或找到与桌面账号 UID 相同的兼容明文文件。继续预演、安装、核对。 |
+| `ClientTask` | 本机仅有加密登录对象。向用户说明轻量计划任务不适用，展示下方客户端内方案及运行条件由用户决定。 |
+| `Unavailable` | 按 `reason` 处理：`LoginRequired` 请用户登录国内版客户端；`Unreadable` 或 `UnknownFormat` 请反馈诊断原因和客户端版本。停止安装。 |
 
 ## WindowsTask
 
-下面的命令保留用户打开的 WorkBuddy。若用户指定时间，替换两处时间。首次安装前检查现有 Windows 任务和 WorkBuddy 内同用途的定时任务，以免建立两个。若同名任务来源冲突，保留原任务并告知用户。
+下面的命令保留用户打开的 WorkBuddy（`-NoClose`）。若用户指定时间，替换两处时间。首次安装前检查现有 Windows 任务和 WorkBuddy 内同用途的定时任务，以免重复建立。若同名任务来源冲突，保留原任务并告知用户。
 
 ```powershell
 & $engine -NoProfile -NonInteractive -ExecutionPolicy Bypass -File .\Install.ps1 -DailyTime '16:00' -NoClose -WhatIf
@@ -38,16 +38,16 @@ $task.Actions | Select-Object Execute, Arguments, WorkingDirectory
 $task | Get-ScheduledTaskInfo | Select-Object NextRunTime, LastRunTime, LastTaskResult
 ```
 
-回读并核对任务指向当前固定目录、包含 `-NoClose`、下次触发时间符合用户要求，再报告安装完成。需要验证登录时，用 `wb-daily-checkin.ps1 -CheckOnly -NoClose`，这会刷新凭证但不会领取。只有在用户要求立即签到时才运行 `wb-daily-checkin.ps1 -NoClose`。领取成功、今日已领和已安装是三种不同结果，分别记录。卸载用 `Uninstall.ps1`。
+回读并核对任务指向当前固定目录、包含 `-NoClose`、下次触发时间符合用户要求，再报告安装完成。需要只读验证登录与连接时，用 `wb-daily-checkin.ps1 -CheckOnly -NoClose`（会刷新本地加密缓存，但不提交领取请求）。只有在用户明确要求立即签到时才运行 `wb-daily-checkin.ps1 -NoClose`。领取成功、今日已领和已安装是三种不同结果，分别记录。卸载用 `Uninstall.ps1`。
 
 ## ClientTask
 
-仅有加密对象时，公开版提供一个**客户端内定时任务模板**。这条路径要求 WorkBuddy 在任务执行时在线运行、本机桌面可交互、有桌面操作能力；模型执行可能消耗积分。若用户要求客户端退出后也要执行，请报告轻量模式不适用于这台机器。不要自动改变用户的运行条件。
+本机仅有加密登录对象时，可由用户选择使用**客户端内定时任务模板**。必须提前告知用户：这条路径要求 WorkBuddy 在任务执行时处于运行状态、本机桌面未锁屏且具备桌面操作能力，并可能消耗 AI 积分。若用户要求客户端退出后也能自动运行，请如实报告本公开仓库暂不支持该机器的轻量模式，不要擅自改变运行条件。
 
-用户选择此方式后，在 WorkBuddy 的“定时任务”中查找同用途本地任务，有则复用。确认 Windows 计划任务没有重复执行，再新建本地任务。默认名称“Buddy 加油站每日签到”，时间为每天本机 16:00。使用接收者当前账号和已有桌面权限。任务正文可用：
+用户确认采用此方式后，先检查 WorkBuddy 的“定时任务”中是否已有同用途任务（有则复用），并确认 Windows 计划任务没有重复项，再新建本地任务。默认名称“Buddy 加油站每日签到”，时间为每天本机 16:00，使用接收者当前账号和已有桌面权限。任务正文参考：
 
 > 在正在运行的 WorkBuddy 桌面客户端，打开头像菜单里的「Buddy 加油站」，找到每日签到。只在明确可领取时点击一次。看到当日签到成功或新增积分后记录结果；已领取则记录“今日已领”。如果控件不明确、要求登录、桌面被锁或需要用户操作，记录原因并结束本次任务。保持客户端打开，不处理其他奖励。
 
-保存后回读任务卡片的名称、时间、启用状态和下次执行时间。普通终端 agent 没有 WorkBuddy 桌面工具时，将任务模板交给用户或 WorkBuddy 执行，并标注尚未安装。真实领取请以客户端回执或积分明细验收。要停用这条路径，请在 WorkBuddy 自己的定时任务页暂停或删除对应卡片。
+保存后回读任务卡片的名称、时间、启用状态和下次执行时间。普通终端 Agent 没有 WorkBuddy 桌面操作工具时，将任务模板交给用户或 WorkBuddy 客户端执行，并明确标注尚未安装。真实领取结果以客户端回执或积分明细为准。停用时请在 WorkBuddy 自己的定时任务页暂停或删除对应卡片。
 
-官方资料：[WorkBuddy 定时任务](https://www.workbuddy.cn/docs/workbuddy/From-Beginner-to-Expert-Guide/Function-Description/Automation-Guide) · [账号菜单和 Buddy 加油站](https://www.workbuddy.cn/docs/workbuddy/From-Beginner-to-Expert-Guide/Function-Description/Setting)
+官方参考资料：[WorkBuddy 定时任务](https://www.workbuddy.cn/docs/workbuddy/From-Beginner-to-Expert-Guide/Function-Description/Automation-Guide) · [账号菜单和 Buddy 加油站](https://www.workbuddy.cn/docs/workbuddy/From-Beginner-to-Expert-Guide/Function-Description/Setting)

@@ -16,7 +16,7 @@ $ErrorActionPreference = 'Stop'
 $ProgressPreference = 'SilentlyContinue'
 # 5.1 默认按 ANSI 代码页解码 curl 等原生命令输出，UTF-8 中文会被搞乱导致 JSON 解析失败
 try { [Console]::OutputEncoding = [Text.Encoding]::UTF8 } catch {}
-try { [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12 } catch {}
+try { [Net.ServicePointManager]::SecurityProtocol = [Net.ServicePointManager]::SecurityProtocol -bor [Net.SecurityProtocolType]::Tls12 } catch {}
 
 # ---------------- 基础函数 ----------------
 
@@ -287,20 +287,30 @@ function Select-RefreshCredential {
 
 # ---------------- 1. 读取登录态（refreshToken / uid） ----------------
 
+$refreshToken = $null
+$uid = $null
+$authLastWriteTime = [datetime]::MinValue
+
 try {
     $selection = Get-WbLoginSelection -ExplicitPath $AuthInfoFile
-    if ($selection.Route -ne 'WindowsTask') { throw ('请运行 Diagnose.cmd，部署路径见 AGENTS.md。原因 ' + $selection.Reason) }
-    $AuthInfoFile = $selection.Path
-    $info = $selection.Info
+    if ($selection.Route -eq 'WindowsTask') {
+        $AuthInfoFile = $selection.Path
+        $info = $selection.Info
+        $refreshToken = $info.auth.refreshToken
+        $uid = [string]$info.account.uid
+        $authLastWriteTime = (Get-Item -LiteralPath $AuthInfoFile).LastWriteTime
+    } elseif (-not $AuthInfoFile -and $selection.Route -eq 'Unavailable' -and $selection.Reason -eq 'LoginRequired' -and (Test-Path -LiteralPath $StateFile)) {
+        Write-Log 'WARN  未找到客户端登录文件，尝试使用脚本缓存凭证'
+    } else {
+        throw ('请运行 Diagnose.cmd，部署路径见 AGENTS.md。原因 ' + $selection.Reason)
+    }
 } catch { Write-Log ('ERROR ' + $_.Exception.Message); exit 1 }
-$refreshToken = $info.auth.refreshToken
-$uid = [string]$info.account.uid
-$authLastWriteTime = (Get-Item -LiteralPath $AuthInfoFile).LastWriteTime
+
 $state = $null
 if (Test-Path -LiteralPath $StateFile) {
     try {
         $state = Get-Content -LiteralPath $StateFile -Raw -Encoding UTF8 | ConvertFrom-Json
-        if ($state.uid -eq $uid) { $state.refreshToken = Unprotect-WbCacheToken -Token $state.refreshToken }
+        if (-not $uid -or $state.uid -eq $uid) { $state.refreshToken = Unprotect-WbCacheToken -Token $state.refreshToken }
         else { $state = $null }
     } catch { $state = $null }
 }
@@ -356,7 +366,7 @@ if (-not $uid) {
         Write-Log 'ERROR 无法确定账号 uid'
         exit 1
     }
-    Write-Log ('INFO  uid 取自令牌: ' + $uid)
+    Write-Log 'INFO  已从令牌确定账号标识'
 }
 
 # ---------------- 3. 执行每日签到 ----------------

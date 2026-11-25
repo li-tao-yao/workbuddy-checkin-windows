@@ -59,7 +59,21 @@ def check(engine):
         put(desktop, "account-a", {"unsupported": 2})
         expect("Unavailable", "UnknownFormat", 1)
         desktop.write_text("{broken", encoding="utf-8")
+        # Corrupted desktop file falls back cleanly to valid companion text login.
+        expect("WindowsTask", "TextLogin")
+        companion.unlink()
         expect("Unavailable", "Unreadable", 1)
+
+        # Encrypted primary + plaintext Roaming desktop fallback (same UID)
+        roaming_desktop = roaming / suffix / "workbuddy-desktop.info"
+        put(desktop, "account-a", {"$wbEncrypted": 1, "envelope": "fixture"})
+        put(roaming_desktop, "account-a", secret)
+        expect("WindowsTask", "SameAccountCompanion")
+        roaming_desktop.unlink()
+
+        # Plaintext login without uid allows JWT sub fallback
+        put(desktop, "", secret)
+        expect("WindowsTask", "TextLogin")
     print(f"PASS login selection and agent install preview: {engine}")
 
 

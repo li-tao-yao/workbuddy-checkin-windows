@@ -1,4 +1,4 @@
-﻿function Protect-WbCacheToken {
+function Protect-WbCacheToken {
     param([string]$Token)
     Add-Type -AssemblyName System.Security
     $bytes = [Text.Encoding]::UTF8.GetBytes($Token)
